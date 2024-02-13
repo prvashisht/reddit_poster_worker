@@ -9,7 +9,7 @@
   },
   "private": true,
   "scripts": {
-    "start": "wrangler dev",
+    "dev": "wrangler dev src/index.ts",
     "deploy": "wrangler deploy",
     "test": "vitest"
   }
