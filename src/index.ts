@@ -55,7 +55,7 @@ export default {
 			let redditToken1: string = await authenticateWithReddit(env);
 			const firstPostTitle = await getFirstPostTitle(redditToken1, 'DHSavagery');
 			if (firstPostTitle.includes(postData.latestdate.value)) {
-				// return new Response('Latest speakout posted already on ' + postData.latestdate.value);
+				return new Response('Latest speakout posted already on ' + postData.latestdate.value);
 			}
 
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
