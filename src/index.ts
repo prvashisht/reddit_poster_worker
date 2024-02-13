@@ -34,6 +34,11 @@ const postData: { [key: string]: { selector: string; requiredField: string; valu
 		requiredField: 'text',
 		value: '',
 	},
+	readmorelink: {
+		selector: '#text-element-with-ad > div > div > p:nth-child(3) > a',
+		requiredField: 'href',
+		value: '',
+	},
 };
 export default {
 	async fetch(
@@ -56,6 +61,8 @@ export default {
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'ahref');
 			await scrapeWebsite(postData.ahref.value, 'comment');
+			await scrapeWebsite(postData.ahref.value, 'readmorelink');
+			postData.comment.value = postData.comment.value.replace(/Read more(?![\s\S]*Read more)/i, `[Read more](${postData.readmorelink.value})`);
 			const subredditName: string = 'DHSavagery';
 			const postContent: RedditPostContent = {
 					title: `DH Speakout | ${postData.latestdate.value}`,
@@ -101,6 +108,10 @@ const scrapeWebsite = async (url: string, postDataKey: string): Promise<void> =>
 			} else if (postDataKey === 'ahref') {
 				Array.from(element.attributes).filter((attr) => attr[0] === 'href').find((attr) => {
 					postData[postDataKey].value = "https://www.deccanherald.com" + attr[1];
+				});
+			} else if (postDataKey === 'readmorelink') {
+				Array.from(element.attributes).filter((attr) => attr[0] === 'href').find((attr) => {
+					postData[postDataKey].value = attr[1];
 				});
 			}
 		}
