@@ -62,8 +62,8 @@ export default {
 					url: postData.imgsrc.value,
 			};
 			const postResult = await postOnReddit(redditToken1, subredditName, postContent);
-
-			return new Response(JSON.stringify(postResult));
+			const commentResult = await addCommentToPost(redditToken1, postResult.id, postData.comment.value);
+			return new Response(JSON.stringify({postResult, commentResult}));
 		} catch (error) {
 				return new Response((error as Error).message, { status: 500 });
 		}
@@ -143,13 +143,14 @@ const postOnReddit = async (token: string, subreddit: string, content: RedditPos
 		url: content.url,
 		kind: 'link',
 		resubmit: 'true', // Allows resubmitting the same link
+		api_type: 'json',
 	}).toString();
 
 	const response = await fetch(postUrl, {
 			method: 'POST',
 			headers: {
 					'Authorization': `Bearer ${token}`,
-					'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+					'Content-Type': 'application/x-www-form-urlencoded',
 					'User-Agent': 'web:com.pratyushvashisht.reddit-savage-bot (by /u/prvashisht)',
 			},
 			body: postBody,
@@ -160,5 +161,27 @@ const postOnReddit = async (token: string, subreddit: string, content: RedditPos
 	}
 
 	const data = await response.json();
-	return data;
+	return data.json.data;
 }
+const addCommentToPost = async (token: string, postId: string, text: string): Promise<any> => {
+	const response = await fetch('https://oauth.reddit.com/api/comment', {
+			method: 'POST',
+			headers: {
+					'Authorization': `Bearer ${token}`,
+					'Content-Type': 'application/x-www-form-urlencoded',
+					'User-Agent': 'web:com.pratyushvashisht.reddit-savage-bot (by /u/prvashisht)',
+			},
+			body: new URLSearchParams({
+					thing_id: `t3_${postId}`,
+					text: text,
+					api_type: 'json',
+			}).toString(),
+	});
+
+	if (!response.ok) {
+			throw new Error(`Failed to add comment: ${response.statusText}`);
+	}
+
+	const data = await response.json();
+	return data;
+};
