@@ -42,22 +42,18 @@ const postData: { [key: string]: { selector: string; requiredField: string; valu
 };
 export default {
 	async scheduled(event: any, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(this.fetch(event.request, env, ctx));
-  },
-	async fetch(request: Request,env: Env,ctx: ExecutionContext): Promise<Response> {
 		try {
 			Object.keys(postData).forEach((key) => {
 				postData[key].value = '';
 			});
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'latestdate');
-	console.log('postData.latestdate.value');
 			let redditToken1: string = await authenticateWithReddit(env);
 			const firstPostTitle = await getFirstPostTitle(redditToken1, 'DHSavagery');
 			if (firstPostTitle.includes(postData.latestdate.value)) {
-				return new Response('Latest speakout posted already on ' + postData.latestdate.value);
+				console.error('Latest speakout posted already on ' + postData.latestdate.value);
+				// return 'Latest speakout posted already on ' + postData.latestdate.value;
 			}
 	
-			return new Response('Latest speakout not posted yet on ' + postData.latestdate.value);
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'ahref');
 			await scrapeWebsite(postData.ahref.value, 'comment');
@@ -70,14 +66,15 @@ export default {
 			};
 			const postResult = await postOnReddit(redditToken1, subredditName, postContent);
 			const commentResult = await addCommentToPost(redditToken1, postResult.id, postData.comment.value);
-			return new Response(JSON.stringify({postResult, commentResult}));
+			console.log('Posted on Reddit', postResult);
+			console.log('Commented on Reddit', commentResult.json);
+			return {postResult, commentResult};
 		} catch (error) {
-				return new Response((error as Error).message, { status: 500 });
+			console.error('Scheduled function failed', error);
+			return error;
 		}
 	},
 };
-
-// const doSomeTaskOnASchedule = 
 
 const scrapeWebsite = async (url: string, postDataKey: string): Promise<void> => {
 	const response = await fetch(url);
