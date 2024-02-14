@@ -41,23 +41,23 @@ const postData: { [key: string]: { selector: string; requiredField: string; valu
 	},
 };
 export default {
-	async fetch(
-		request: Request,
-		env: Env,
-		ctx: ExecutionContext
-	): Promise<Response> {
+	async scheduled(event: any, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(this.fetch(event.request, env, ctx));
+  },
+	async fetch(request: Request,env: Env,ctx: ExecutionContext): Promise<Response> {
 		try {
 			Object.keys(postData).forEach((key) => {
 				postData[key].value = '';
 			});
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'latestdate');
-
+	console.log('postData.latestdate.value');
 			let redditToken1: string = await authenticateWithReddit(env);
 			const firstPostTitle = await getFirstPostTitle(redditToken1, 'DHSavagery');
 			if (firstPostTitle.includes(postData.latestdate.value)) {
 				return new Response('Latest speakout posted already on ' + postData.latestdate.value);
 			}
-
+	
+			return new Response('Latest speakout not posted yet on ' + postData.latestdate.value);
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
 			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'ahref');
 			await scrapeWebsite(postData.ahref.value, 'comment');
@@ -76,6 +76,8 @@ export default {
 		}
 	},
 };
+
+// const doSomeTaskOnASchedule = 
 
 const scrapeWebsite = async (url: string, postDataKey: string): Promise<void> => {
 	const response = await fetch(url);
@@ -171,7 +173,7 @@ const postOnReddit = async (token: string, subreddit: string, content: RedditPos
 			throw new Error(`Failed to post on Reddit: ${response.statusText}`);
 	}
 
-	const data = await response.json();
+	const data: any = await response.json();
 	return data.json.data;
 }
 const addCommentToPost = async (token: string, postId: string, text: string): Promise<any> => {
