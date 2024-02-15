@@ -35,7 +35,7 @@ const postData: { [key: string]: { selector: string; requiredField: string; valu
 		value: '',
 	},
 	readmorelink: {
-		selector: '#text-element-with-ad > div > div > p:nth-child(3) > a',
+		selector: '#text-element-with-ad .story-element a',
 		requiredField: 'href',
 		value: '',
 	},
