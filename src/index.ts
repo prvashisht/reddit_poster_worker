@@ -46,7 +46,7 @@ export default {
 			Object.keys(postData).forEach((key) => {
 				postData[key].value = '';
 			});
-			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'latestdate');
+			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'latestdate');
 			let redditToken1: string = await authenticateWithReddit(env);
 			const firstPostTitle = await getFirstPostTitle(redditToken1, 'DHSavagery');
 			if (firstPostTitle.includes(postData.latestdate.value)) {
@@ -54,10 +54,10 @@ export default {
 				// return 'Latest speakout posted already on ' + postData.latestdate.value;
 			}
 	
-			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
-			await scrapeWebsite('https://www.deccanherald.com/opinion/speak-out', 'ahref');
-			await scrapeWebsite(postData.ahref.value, 'comment');
-			await scrapeWebsite(postData.ahref.value, 'readmorelink');
+			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
+			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'ahref');
+			await getSpeakOutData(postData.ahref.value, 'comment');
+			await getSpeakOutData(postData.ahref.value, 'readmorelink');
 			postData.comment.value = postData.comment.value.replace(/Read more(?![\s\S]*Read more)/i, `[Read more](${postData.readmorelink.value})`);
 			const subredditName: string = 'DHSavagery';
 			const postContent: RedditPostContent = {
@@ -76,7 +76,7 @@ export default {
 	},
 };
 
-const scrapeWebsite = async (url: string, postDataKey: string): Promise<void> => {
+const getSpeakOutData = async (url: string, postDataKey: string): Promise<void> => {
 	const response = await fetch(url);
 	if (!response.ok) {
 		throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
