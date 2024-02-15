@@ -67,7 +67,7 @@ export default {
 			const postResult = await postOnReddit(redditToken1, subredditName, postContent);
 			const commentResult = await addCommentToPost(redditToken1, postResult.id, postData.comment.value);
 			console.log('Posted on Reddit', postResult);
-			console.log('Commented on Reddit', commentResult.json);
+			console.log('Commented on Reddit', commentResult);
 			return {postResult, commentResult};
 		} catch (error) {
 			console.error('Scheduled function failed', error);
@@ -192,6 +192,6 @@ const addCommentToPost = async (token: string, postId: string, text: string): Pr
 			throw new Error(`Failed to add comment: ${response.statusText}`);
 	}
 
-	const data = await response.json();
-	return data;
+	const data: any = await response.json();
+	return data.json.data;
 };
