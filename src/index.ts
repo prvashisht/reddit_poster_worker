@@ -51,7 +51,7 @@ export default {
 			const firstPostTitle = await getFirstPostTitle(redditToken1, 'DHSavagery');
 			if (firstPostTitle.includes(postData.latestdate.value)) {
 				console.error('Latest speakout posted already on ' + postData.latestdate.value);
-				// return 'Latest speakout posted already on ' + postData.latestdate.value;
+				return 'Latest speakout posted already on ' + postData.latestdate.value;
 			}
 	
 			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
