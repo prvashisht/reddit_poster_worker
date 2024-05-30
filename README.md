@@ -1,0 +1,1 @@
+This worker acts as a reddit bot to post images from Deccan Herald's speakout section to the subreddit [r/DHSavagery](https://old.reddit.com/r/DHSavagery/). It's hosted on Cloudflare as a scheduled worker.
