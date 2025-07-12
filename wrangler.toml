@@ -1,3 +1,6 @@
 name = "reddit_poster_worker"
 main = "src/index.ts"
-compatibility_date = "2024-02-12"
+compatibility_date = "2025-07-11"
+
+[triggers]
+crons = ["0 * * * *"]

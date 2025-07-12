@@ -2,15 +2,15 @@
   "name": "reddit_poster_worker",
   "version": "0.0.0",
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20240208.0",
     "typescript": "^5.3.3",
     "vitest": "^1.2.2",
-    "wrangler": "3.13.1"
+    "wrangler": "^4.24.3"
   },
   "private": true,
   "scripts": {
     "dev": "wrangler dev src/index.ts",
     "deploy": "wrangler deploy",
+    "types": "wrangler types",
     "test": "vitest"
   }
 }
