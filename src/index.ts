@@ -97,7 +97,10 @@ const getSpeakOutData = async (url: string, postDataKey: string): Promise<void> 
 		element(element) {
 			if (postDataKey === 'imgsrc') {
 				Array.from(element.attributes).filter((attr) => attr[0] === 'src').find((attr) => {
-					postData[postDataKey].value = attr[1].split('?')[0].split('\/\/')[1].replace('media.assettype.com', 'images.deccanherald.com');
+					postData[postDataKey].value = attr[1]
+						.split('?')[0]
+						.split('\/\/')[1]
+						// .replace('media.assettype.com', 'images.deccanherald.com');
 				});
 			} else if (postDataKey === 'ahref') {
 				Array.from(element.attributes).filter((attr) => attr[0] === 'href').find((attr) => {
