@@ -17,21 +17,6 @@ const postData: { [key: string]: { selector: string; requiredField: string; valu
 		requiredField: 'src',
 		value: '',
 	},
-	// ahref: {
-	// 	selector: '.listing-story-card:first-of-type div:nth-of-type(2) a:first-of-type',
-	// 	requiredField: 'href',
-	// 	value: '',
-	// },
-	// comment: {
-	// 	selector: '#text-element-with-ad > div > div p',
-	// 	requiredField: 'text',
-	// 	value: '',
-	// },
-	// readmorelink: {
-	// 	selector: '#text-element-with-ad .story-element a',
-	// 	requiredField: 'href',
-	// 	value: '',
-	// },
 };
 export default {
 	async scheduled(_event: any, env: Env, _ctx: ExecutionContext) {
@@ -47,20 +32,13 @@ export default {
 				return 'Latest speakout posted already on ' + postData.latestdate.value;
 			}
 			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
-			// Commenting out these lines because DH has stopped providing the full text of the speakout or any comments on the page.
-			// await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'ahref');
-			// await getSpeakOutData(postData.ahref.value, 'comment');
-			// await getSpeakOutData(postData.ahref.value, 'readmorelink');
-			// postData.comment.value = postData.comment.value.replace(/Read more(?![\s\S]*Read more)/i, `[Read more](${postData.readmorelink.value})`);
 			const subredditName: string = 'DHSavagery';
 			const postContent: RedditPostContent = {
 					title: `DH Speakout | ${postData.latestdate.value}`,
 					url: postData.imgsrc.value,
 			};
 			const postResult = await postOnReddit(redditToken1, subredditName, postContent);
-			// const commentResult = await addCommentToPost(redditToken1, postResult.id, postData.comment.value);
 			console.log('Posted on Reddit', postResult);
-			// console.log('Commented on Reddit', commentResult);
 			return { postResult };
 		} catch (error) {
 			console.error('Scheduled function failed', error);
@@ -100,7 +78,7 @@ const getSpeakOutData = async (url: string, postDataKey: string): Promise<void> 
 					postData[postDataKey].value = attr[1]
 						.split('?')[0]
 						.split('\/\/')[1]
-						// .replace('media.assettype.com', 'images.deccanherald.com');
+						.replace('media.assettype.com', 'images.deccanherald.com');
 				});
 			} else if (postDataKey === 'ahref') {
 				Array.from(element.attributes).filter((attr) => attr[0] === 'href').find((attr) => {
