@@ -21,10 +21,15 @@ const postData: { [key: string]: { selector: string; requiredField: string; valu
 export default {
 	async scheduled(_event: any, env: Env, _ctx: ExecutionContext) {
 		try {
+			const { title, imageUrl } = await getLatestSpeakOut();
+			console.log('Latest Speak Out:', title, imageUrl);
+
+			return "text complete";
+
 			Object.keys(postData).forEach((key) => {
 				postData[key].value = '';
 			});
-			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'latestdate');
+			await getSpeakOutData('https://www.deccanherald.com/tags/dh-speak-out', 'latestdate');
 			let redditToken1: string = await authenticateWithReddit(env);
 			const firstPostTitle = await getFirstPostTitle(redditToken1, 'DHSavagery');
 			if (!postData.latestdate.value) {
@@ -38,6 +43,11 @@ export default {
 				return errorMsg;
 			}
 			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
+			if (!postData.imgsrc.value) {
+				const errorMsg = 'Image source not found on DH Speakout';
+				console.error(errorMsg, postData);
+				return errorMsg;
+			}
 			const subredditName: string = 'DHSavagery';
 			const postContent: RedditPostContent = {
 					title: `DH Speakout | ${postData.latestdate.value}`,
@@ -55,6 +65,55 @@ export default {
     return new Response('OK')
   },
 };
+
+type SpeakOutMeta = { title: string; imageUrl: string; pageUrl: string };
+
+async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
+  const listUrl = 'https://www.deccanherald.com/tags/dh-speak-out';
+
+  // 1) Fetch the server-rendered tag page and grab the first article URL
+  const listResp = await fetch(listUrl, { cf: { cacheTtl: 300 } });
+  if (!listResp.ok) throw new Error(`Failed list fetch ${listUrl}: ${listResp.status}`);
+  const listHtml = await listResp.text();
+
+  const m = listHtml.match(/href="(\/opinion\/speak-out\/[^"]+)"/i);
+  if (!m) throw new Error('Could not find latest Speak Out link on tag page');
+  const pageUrl = new URL(m[1], 'https://www.deccanherald.com').toString();
+
+  // 2) Fetch the article page and extract og:title and og:image
+  let title = '';
+  let imageUrl = '';
+
+  const articleResp = await fetch(pageUrl, { cf: { cacheTtl: 300 } });
+  if (!articleResp.ok) throw new Error(`Failed article fetch ${pageUrl}: ${articleResp.status}`);
+
+  await new HTMLRewriter()
+    .on('meta[property="og:title"]', {
+      element(e) {
+        const t = e.getAttribute('content');
+        if (t) title = t.trim();
+      },
+    })
+    .on('meta[property="og:image"]', {
+      element(e) {
+        const u = e.getAttribute('content');
+        if (u) imageUrl = u.trim().split('?')[0];
+      },
+    })
+    // fallback: capture the visible H1 if og:title is missing
+    .on('h1', {
+      text(t) {
+        if (!title) title += t.text;
+      },
+    })
+    .transform(articleResp).arrayBuffer(); // consume body to run the rewriter
+
+  title = title.trim();
+  if (!title) throw new Error('Could not extract title from article page');
+  if (!imageUrl) throw new Error('Could not extract og:image from article page');
+
+  return { title, imageUrl, pageUrl };
+}
 
 const getSpeakOutData = async (url: string, postDataKey: string): Promise<void> => {
 	const response = await fetch(url);
