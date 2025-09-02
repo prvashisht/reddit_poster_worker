@@ -27,9 +27,15 @@ export default {
 			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'latestdate');
 			let redditToken1: string = await authenticateWithReddit(env);
 			const firstPostTitle = await getFirstPostTitle(redditToken1, 'DHSavagery');
+			if (!postData.latestdate.value) {
+				const errorMsg = 'Latest date not found on DH Speakout';
+				console.error(errorMsg);
+				return errorMsg;
+			}
 			if (firstPostTitle.includes(postData.latestdate.value)) {
-				console.error('Latest speakout posted already on ' + postData.latestdate.value);
-				return 'Latest speakout posted already on ' + postData.latestdate.value;
+				const errorMsg = 'Latest speakout posted already on ' + postData.latestdate.value;
+				console.error(errorMsg);
+				return errorMsg;
 			}
 			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
 			const subredditName: string = 'DHSavagery';
