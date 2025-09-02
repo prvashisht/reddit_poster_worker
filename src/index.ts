@@ -1,61 +1,35 @@
-interface RedditTokenResponse {
+type RedditTokenResponse = {
 	access_token: string;
-}
+};
 
-interface RedditPostContent {
+type RedditPostContent = {
 	title: string;
 	url: string;
 }
-const postData: { [key: string]: { selector: string; requiredField: string; value: string } } = {
-	latestdate: {
-		selector: '.listing-story-card:first-of-type h1',
-		requiredField: 'text',
-		value: '',
-	},
-	imgsrc: {
-		selector: '.listing-story-card:first-of-type img',
-		requiredField: 'src',
-		value: '',
-	},
+
+type SpeakOutMeta = {
+	title: string;
+	imageUrl: string;
+	pageUrl: string;
 };
+
 export default {
 	async scheduled(_event: any, env: Env, _ctx: ExecutionContext) {
 		try {
 			const { title, imageUrl } = await getLatestSpeakOut();
-			console.log('Latest Speak Out:', title, imageUrl);
 
-			return "text complete";
+			const token = await authenticateWithReddit(env);
+      const firstPostTitle = await getFirstPostTitle(token, 'DHSavagery');
 
-			Object.keys(postData).forEach((key) => {
-				postData[key].value = '';
-			});
-			await getSpeakOutData('https://www.deccanherald.com/tags/dh-speak-out', 'latestdate');
-			let redditToken1: string = await authenticateWithReddit(env);
-			const firstPostTitle = await getFirstPostTitle(redditToken1, 'DHSavagery');
-			if (!postData.latestdate.value) {
-				const errorMsg = 'Latest date not found on DH Speakout';
-				console.error(errorMsg);
-				return errorMsg;
-			}
-			if (firstPostTitle.includes(postData.latestdate.value)) {
-				const errorMsg = 'Latest speakout posted already on ' + postData.latestdate.value;
-				console.error(errorMsg);
-				return errorMsg;
-			}
-			await getSpeakOutData('https://www.deccanherald.com/opinion/speak-out', 'imgsrc');
-			if (!postData.imgsrc.value) {
-				const errorMsg = 'Image source not found on DH Speakout';
-				console.error(errorMsg, postData);
-				return errorMsg;
-			}
-			const subredditName: string = 'DHSavagery';
-			const postContent: RedditPostContent = {
-					title: `DH Speakout | ${postData.latestdate.value}`,
-					url: postData.imgsrc.value,
-			};
-			const postResult = await postOnReddit(redditToken1, subredditName, postContent);
-			console.log('Posted on Reddit', postResult);
-			return { postResult };
+			if (firstPostTitle.includes(title)) {
+        const msg = `Latest speakout posted already: ${title}`;
+        console.error(msg);
+        return msg;
+      }
+
+			const postContent: RedditPostContent = { title: `DH Speakout | ${title}`, url: imageUrl };
+      const postResult = await postOnReddit(token, 'DHSavagery', postContent);
+      return { postResult };
 		} catch (error) {
 			console.error('Scheduled function failed', error);
 			return error;
@@ -66,12 +40,9 @@ export default {
   },
 };
 
-type SpeakOutMeta = { title: string; imageUrl: string; pageUrl: string };
-
 async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
   const listUrl = 'https://www.deccanherald.com/tags/dh-speak-out';
 
-  // 1) Fetch the server-rendered tag page and grab the first article URL
   const listResp = await fetch(listUrl, { cf: { cacheTtl: 300 } });
   if (!listResp.ok) throw new Error(`Failed list fetch ${listUrl}: ${listResp.status}`);
   const listHtml = await listResp.text();
@@ -80,7 +51,6 @@ async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
   if (!m) throw new Error('Could not find latest Speak Out link on tag page');
   const pageUrl = new URL(m[1], 'https://www.deccanherald.com').toString();
 
-  // 2) Fetch the article page and extract og:title and og:image
   let title = '';
   let imageUrl = '';
 
@@ -100,63 +70,26 @@ async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
         if (u) imageUrl = u.trim().split('?')[0];
       },
     })
-    // fallback: capture the visible H1 if og:title is missing
     .on('h1', {
       text(t) {
         if (!title) title += t.text;
       },
     })
-    .transform(articleResp).arrayBuffer(); // consume body to run the rewriter
+    .transform(articleResp).arrayBuffer();
 
-  title = title.trim();
+  title = title.trim().split('|').pop()?.trim() ?? title;
+	title = new Date(title).toLocaleDateString('en-us', {
+							weekday: "long",
+							year: "numeric",
+							month: "long",
+							day: "numeric"
+					});
   if (!title) throw new Error('Could not extract title from article page');
   if (!imageUrl) throw new Error('Could not extract og:image from article page');
 
   return { title, imageUrl, pageUrl };
 }
 
-const getSpeakOutData = async (url: string, postDataKey: string): Promise<void> => {
-	const response = await fetch(url);
-	if (!response.ok) {
-		throw new Error(`Failed to fetch ${url}: ${response.statusText}`);
-	}
-
-	await new HTMLRewriter().on(postData[postDataKey].selector, {
-		text(text) {
-			if (postDataKey === 'latestdate') {
-				postData[postDataKey].value += text.text ? 
-				new Date(text.text.split(" | ")[1])
-					.toLocaleDateString('en-us', {
-							weekday: "long",
-							year: "numeric",
-							month: "long",
-							day: "numeric"
-					}) 
-				: '';
-			} else if (postDataKey === 'comment') {
-				postData[postDataKey].value += text.text + "\n";
-			}
-		},
-		element(element) {
-			if (postDataKey === 'imgsrc') {
-				Array.from(element.attributes).filter((attr) => attr[0] === 'src').find((attr) => {
-					postData[postDataKey].value = attr[1]
-						.split('?')[0]
-						.split('\/\/')[1]
-						.replace('media.assettype.com', 'images.deccanherald.com');
-				});
-			} else if (postDataKey === 'ahref') {
-				Array.from(element.attributes).filter((attr) => attr[0] === 'href').find((attr) => {
-					postData[postDataKey].value = "https://www.deccanherald.com" + attr[1];
-				});
-			} else if (postDataKey === 'readmorelink') {
-				Array.from(element.attributes).filter((attr) => attr[0] === 'href').find((attr) => {
-					postData[postDataKey].value = attr[1];
-				});
-			}
-		}
-	}).transform(response).text();
-}
 const authenticateWithReddit = async (env: Env): Promise<string> => {	
 	const response = await fetch('https://www.reddit.com/api/v1/access_token', {
 		method: 'POST',
