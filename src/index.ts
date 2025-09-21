@@ -19,6 +19,13 @@ export default {
 			const { title, imageUrl } = await getLatestSpeakOut();
 
 			const token = await authenticateWithReddit(env);
+			const { assetId, imageUrlForSubmit } = await uploadImageToReddit(token, imageUrl);
+			// console.log('Uploaded image to Reddit:', imageUrlForSubmit);
+			// TODO: Add direct image upload as an alternative
+			// TODO: Check for existing posts with same title before submitting
+			const result = await submitImagePost(token, 'DHSavagery', `DH Speakout | ${title}`, imageUrlForSubmit);
+			console.log('Submitted image post:', result);
+			return { result };
       const firstPostTitle = await getFirstPostTitle(token, 'DHSavagery');
 
 			if (firstPostTitle.includes(title)) {
@@ -39,6 +46,80 @@ export default {
     return new Response('OK')
   },
 };
+
+type UploadResult = { assetId: string; imageUrlForSubmit: string };
+
+async function uploadImageToReddit(token: string, sourceImageUrl: string): Promise<UploadResult> {
+  const leaseRes = await fetch('https://oauth.reddit.com/api/media/asset.json?raw_json=1', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'web:com.pratyushvashisht.reddit-savage-bot (by /u/prvashisht)',
+    },
+    body: new URLSearchParams({ filepath: 'speakout.jpg', mimetype: 'image/jpeg' }),
+  });
+  if (!leaseRes.ok) throw new Error(`Lease request failed: ${leaseRes.status} ${await leaseRes.text()}`);
+  const lease: any = await leaseRes.json();
+
+  const action = String(lease?.args?.action || '');
+  const actionUrl = action.startsWith('http') ? action : `https:${action}`;
+  const fields = lease?.args?.fields;
+  const assetId: string = String(lease?.asset?.asset_id || '');
+
+  const form = new FormData();
+  if (Array.isArray(fields)) {
+    for (const { name, value } of fields) form.append(name, value);
+  } else {
+    for (const [k, v] of Object.entries(fields || {})) form.append(k, String(v));
+  }
+
+  const imgResp = await fetch(sourceImageUrl);
+  if (!imgResp.ok) throw new Error(`Image download failed: ${imgResp.status}`);
+  const mime = imgResp.headers.get('content-type')?.split(';')[0] || 'image/jpeg';
+  const bytes = await imgResp.arrayBuffer();
+  form.append('file', new Blob([bytes], { type: mime }), `upload.${mime.includes('png') ? 'png' : 'jpg'}`);
+
+  const s3Res = await fetch(actionUrl, { method: 'POST', body: form });
+  if (!s3Res.ok) throw new Error(`S3 upload failed: ${s3Res.status} ${await s3Res.text()}`);
+
+  const key =
+    (Array.isArray(fields) ? fields.find((field: any) => field.name === 'key')?.value : fields?.key) as string | undefined;
+  const s3Url = key ? `https://reddit-uploaded-media.s3-accelerate.amazonaws.com/${key}` : '';
+  const previewUrl = `https://i.redd.it/${assetId}.${mime.includes('png') ? 'png' : 'jpg'}`;
+  const imageUrlForSubmit = s3Url || previewUrl;
+
+  return { assetId, imageUrlForSubmit };
+}
+
+async function submitImagePost(token: string, subreddit: string, title: string, imageUrl: string) {
+	// console.log('Submitting image post with URL:', imageUrl);
+  const postUrl = 'https://oauth.reddit.com/api/submit?raw_json=1';
+  const body = new URLSearchParams({
+    sr: subreddit,
+    title,
+    kind: 'image',
+    url: imageUrl,
+    resubmit: 'true',
+    sendreplies: 'true',
+    api_type: 'json',
+  });
+
+  const resp = await fetch(postUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': 'web:com.pratyushvashisht.reddit-savage-bot (by /u/prvashisht)',
+    },
+    body,
+  });
+  const data = await resp.json();
+	// TODO: fix type errors
+  if (!resp.ok || data?.json?.errors?.length) {
+    throw new Error(`Submit failed: ${resp.status} ${JSON.stringify(data?.json?.errors || data)}`);
+  }
+  return data.json.data; // contains id, name, websocket_url, etc.
+}
 
 async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
   const listUrl = 'https://www.deccanherald.com/tags/dh-speak-out';
