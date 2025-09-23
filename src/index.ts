@@ -36,7 +36,12 @@ export default {
 		}
 	},
 	async fetch(_request: Request, _env: Env, _ctx: ExecutionContext) {
-    return new Response('OK')
+		const response = await _env.AI.run("@cf/meta/llama-3.1-8b-instruct", {
+      prompt: "Just reply with the phrase: 'Hello, Worldy!'. Do not include any other text.",
+    });
+
+    console.log(JSON.stringify(response));
+		return new Response(JSON.stringify(response));
   },
 };
 
@@ -90,7 +95,7 @@ async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
   return { title, imageUrl, pageUrl };
 }
 
-const authenticateWithReddit = async (env: Env): Promise<string> => {	
+const authenticateWithReddit = async (env: Env): Promise<string> => {
 	const response = await fetch('https://www.reddit.com/api/v1/access_token', {
 		method: 'POST',
 		headers: {
@@ -110,7 +115,7 @@ const getFirstPostTitle = async (token: string, subreddit: string): Promise<stri
 					'User-Agent': 'web:com.pratyushvashisht.reddit-savage-bot (by /u/prvashisht)',
 			},
 	});
-	
+
 	if (!response.ok) {
 		throw new Error(`Failed to fetch subreddit posts: ${response.statusText}`);
 	}

@@ -1,4 +1,4 @@
-name = "reddit_poster_worker"
+name = "reddit-poster-worker"
 main = "src/index.ts"
 compatibility_date = "2025-07-11"
 
@@ -7,3 +7,7 @@ crons = ["0 * * * *"]
 
 [observability.logs]
 enabled = true
+
+[ai]
+binding = "AI"
+remote = true
