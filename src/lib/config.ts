@@ -34,8 +34,27 @@ Notes:
 - If there are two parts (politician + punchline), read both.
 - If multiple politicians are mentioned, pick the central claim.
 
-Return only the headline/caption, one line, under 150 chars.`;
+Return only the headline/caption, one line, under 150 chars, and nothing else.`;
 
+export const JUDGE_SYSTEM_PROMPT = 'You are a fair but witty headline judge.';
+
+export const JUDGE_USER_PROMPT_TEMPLATE = `
+You are judging multiple candidate headlines for a snarky subreddit post.
+Each headline is short and witty, based on a politician's quote + punchline image.
+
+Candidates:
+{{CANDIDATES}}
+
+Rules for picking the best:
+- Must be short, punchy, under 150 characters
+- Must highlight irony, hypocrisy, or absurdity
+- Safe for Reddit (no slurs, no profanity)
+- Feels most engaging/clickable
+- Pick ONLY ONE
+
+Return strict JSON:
+{"bestIndex": number, "summary": string}
+`.trim();
 
 // test prompts
 export const SYSTEM_PROMPT1 = [

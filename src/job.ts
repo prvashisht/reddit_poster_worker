@@ -1,13 +1,14 @@
 import { RedditPostContent } from './lib/types';
 import { getLatestSpeakOut } from './speakout';
-import { ocrAndSummarize } from './ai';
+import { ocrEnsemble } from './ai';
 import { authenticateWithReddit, getFirstPostTitle, postOnReddit } from './reddit';
 
 export async function runJob(env: Env) {
   const { title, imageUrl } = await getLatestSpeakOut();
 
-  const oneLiner = await ocrAndSummarize(env, imageUrl);
+  const oneLiner = await ocrEnsemble(env, imageUrl, 1);
   console.log('One-liner summary:', oneLiner);
+  return 'test';
 
   const token = await authenticateWithReddit(env);
   const firstPostTitle = await getFirstPostTitle(token, 'DHSavagery');
