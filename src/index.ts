@@ -58,12 +58,12 @@ async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
   if (!articleResp.ok) throw new Error(`Failed article fetch ${pageUrl}: ${articleResp.status}`);
 
   await new HTMLRewriter()
-    .on('meta[property="og:title"]', {
-      element(e) {
-        const t = e.getAttribute('content');
-        if (t) title = t.trim();
-      },
-    })
+    // .on('meta[property="og:title"]', {
+    //   element(e) {
+    //     const t = e.getAttribute('content');
+    //     if (t) title = t.trim();
+    //   },
+    // })
     .on('meta[property="og:image"]', {
       element(e) {
         const u = e.getAttribute('content');
