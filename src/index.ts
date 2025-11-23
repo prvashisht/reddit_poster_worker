@@ -14,36 +14,46 @@ type SpeakOutMeta = {
 };
 
 export default {
-	async scheduled(_event: any, env: Env, _ctx: ExecutionContext) {
-		try {
-			const { title, imageUrl } = await getLatestSpeakOut();
+  async scheduled(_event: any, env: Env, _ctx: ExecutionContext) {
+    try {
+      const { title, imageUrl } = await getLatestSpeakOut();
 
-			const token = await authenticateWithReddit(env);
-			const { assetId, imageUrlForSubmit } = await uploadImageToReddit(token, imageUrl);
-			// console.log('Uploaded image to Reddit:', imageUrlForSubmit);
-			// TODO: Add direct image upload as an alternative
-			// TODO: Check for existing posts with same title before submitting
-			const result = await submitImagePost(token, 'DHSavagery', `DH Speakout | ${title}`, imageUrlForSubmit);
-			console.log('Submitted image post:', result);
-			return { result };
+      const token = await authenticateWithReddit(env);
       const firstPostTitle = await getFirstPostTitle(token, 'DHSavagery');
-
-			if (firstPostTitle.includes(title)) {
+      if (firstPostTitle.includes(title)) {
         const msg = `Latest speakout posted already: ${title}`;
         console.error(msg);
         return msg;
       }
 
-			const postContent: RedditPostContent = { title: `DH Speakout | ${title}`, url: imageUrl };
-      const postResult = await postOnReddit(token, 'DHSavagery', postContent);
-      return { postResult };
-		} catch (error) {
-			console.error('Scheduled function failed', error);
-			return error;
-		}
-	},
-	async fetch(_request: Request, _env: Env, _ctx: ExecutionContext) {
-    return new Response('OK')
+      const postTitle = `DH Speakout | ${title}`;
+      let result: unknown;
+
+      try {
+        const { imageUrlForSubmit } = await uploadImageToReddit(token, imageUrl);
+        if (!imageUrlForSubmit) {
+          throw new Error('Image upload did not return a usable URL');
+        }
+
+        console.log('Uploaded image to Reddit:', imageUrlForSubmit);
+        result = await submitImagePost(token, 'DHSavagery', postTitle, imageUrlForSubmit);
+        console.log('Submitted image post:', result);
+      } catch (uploadErr) {
+        console.error('Image upload or image post failed, falling back to link post', uploadErr);
+
+        const postContent: RedditPostContent = { title: postTitle, url: imageUrl };
+        result = await postOnReddit(token, 'DHSavagery', postContent);
+        console.log('Submitted fallback link post:', result);
+      }
+      return { result };
+    } catch (error) {
+      console.error('Scheduled function failed', error);
+      return error;
+    }
+  },
+
+  async fetch(_request: Request, _env: Env, _ctx: ExecutionContext) {
+    return new Response('OK');
   },
 };
 
@@ -92,7 +102,6 @@ async function uploadImageToReddit(token: string, sourceImageUrl: string): Promi
 }
 
 async function submitImagePost(token: string, subreddit: string, title: string, imageUrl: string) {
-	// console.log('Submitting image post with URL:', imageUrl);
   const postUrl = 'https://oauth.reddit.com/api/submit?raw_json=1';
   const body = new URLSearchParams({
     sr: subreddit,
