@@ -101,7 +101,29 @@ async function uploadImageToReddit(token: string, sourceImageUrl: string): Promi
   return { assetId, imageUrlForSubmit };
 }
 
-async function submitImagePost(token: string, subreddit: string, title: string, imageUrl: string) {
+type RedditSubmitError = [string, string?, unknown?];
+
+type RedditSubmitData = {
+  id?: string;
+  name?: string;
+  url?: string;
+  websocket_url?: string;
+  user_submitted_page?: string;
+};
+
+type RedditSubmitResponse = {
+  json: {
+    errors: RedditSubmitError[];
+    data: RedditSubmitData;
+  };
+};
+
+async function submitImagePost(
+  token: string,
+  subreddit: string,
+  title: string,
+  imageUrl: string,
+): Promise<RedditSubmitData> {
   const postUrl = 'https://oauth.reddit.com/api/submit?raw_json=1';
   const body = new URLSearchParams({
     sr: subreddit,
@@ -122,12 +144,16 @@ async function submitImagePost(token: string, subreddit: string, title: string, 
     },
     body,
   });
-  const data = await resp.json();
-	// TODO: fix type errors
-  if (!resp.ok || data?.json?.errors?.length) {
-    throw new Error(`Submit failed: ${resp.status} ${JSON.stringify(data?.json?.errors || data)}`);
+
+  const data = await resp.json<RedditSubmitResponse>();
+
+  const errors = data.json?.errors ?? [];
+  if (!resp.ok || errors.length > 0) {
+    throw new Error(
+      `Submit failed: ${resp.status} ${JSON.stringify(errors)}`,
+    );
   }
-  return data.json.data; // contains id, name, websocket_url, etc.
+  return data.json.data;
 }
 
 async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
