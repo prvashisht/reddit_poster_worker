@@ -41,7 +41,7 @@ export default {
 };
 
 async function getLatestSpeakOut(): Promise<SpeakOutMeta> {
-  const listUrl = 'https://www.deccanherald.com/tags/speak-out';
+  const listUrl = 'https://www.deccanherald.com/tags/opinion';
 
   const listResp = await fetch(listUrl, { cf: { cacheTtl: 300 } });
   if (!listResp.ok) throw new Error(`Failed list fetch ${listUrl}: ${listResp.status}`);
