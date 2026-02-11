@@ -38,12 +38,28 @@ export default {
         console.log('Uploaded image to Reddit:', imageUrlForSubmit);
         result = await submitImagePost(token, 'DHSavagery', postTitle, imageUrlForSubmit);
         console.log('Submitted image post:', result);
+
+        // Verify the image post actually appeared in /new
+        await sleep(3000);
+        const newestTitle = await getFirstPostTitle(token, 'DHSavagery');
+        if (!newestTitle.includes(title)) {
+          throw new Error(`Image post verification failed: newest post is "${newestTitle}", expected to contain "${title}"`);
+        }
+        console.log('Image post verified in /new');
       } catch (uploadErr) {
-        console.error('Image upload or image post failed, falling back to link post', uploadErr);
+        console.error('Image upload/post failed or verification failed, falling back to link post', uploadErr);
 
         const postContent: RedditPostContent = { title: postTitle, url: imageUrl };
         result = await postOnReddit(token, 'DHSavagery', postContent);
         console.log('Submitted fallback link post:', result);
+
+        // Verify the link post actually appeared in /new
+        await sleep(3000);
+        const newestTitle = await getFirstPostTitle(token, 'DHSavagery');
+        if (!newestTitle.includes(title)) {
+          throw new Error(`Link post verification also failed: newest post is "${newestTitle}", expected to contain "${title}"`);
+        }
+        console.log('Link post verified in /new');
       }
       return { result };
     } catch (error) {
@@ -56,6 +72,8 @@ export default {
     return new Response('OK');
   },
 };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 type UploadResult = { assetId: string; imageUrlForSubmit: string };
 
