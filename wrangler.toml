@@ -7,3 +7,8 @@ crons = ["0 * * * *"]
 
 [observability.logs]
 enabled = true
+
+[[kv_namespaces]]
+binding = "REDDIT_POSTER_STATE"
+id = "09fb5d33d2394160b3af020895afabdd"
+preview_id = "621b589301984fad97f4515c25f4e302"

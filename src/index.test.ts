@@ -15,11 +15,25 @@ describe("Worker", () => {
 		await worker.stop();
 	});
 
-	it("should return OK", async () => {
-		const resp = await worker.fetch();
-		if (resp) {
-			const text = await resp.text();
-			expect(text).toMatchInlineSnapshot(`"OK"`);
-		}
+	it("GET / returns dashboard HTML", async () => {
+		const resp = await worker.fetch("/");
+		expect(resp.status).toBe(200);
+		expect(resp.headers.get("content-type")).toContain("text/html");
+		const text = await resp.text();
+		expect(text).toContain("r/DHSavagery");
+		expect(text).toContain("No runs recorded yet");
+	});
+
+	it("GET /api/status returns JSON", async () => {
+		const resp = await worker.fetch("/api/status");
+		expect(resp.status).toBe(200);
+		expect(resp.headers.get("content-type")).toContain("application/json");
+		const body = await resp.json();
+		expect(body).toHaveProperty("message", "No runs recorded yet");
+	});
+
+	it("GET /unknown returns 404", async () => {
+		const resp = await worker.fetch("/unknown");
+		expect(resp.status).toBe(404);
 	});
 });
