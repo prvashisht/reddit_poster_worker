@@ -58,6 +58,34 @@ export async function getFirstPostTitle(token: string, subreddit: string): Promi
   return data.data.children[0]?.data.title || '';
 }
 
+export type RedditPost = {
+  title: string;
+  url: string;
+  permalink: string;
+  createdUtc: number;
+};
+
+export async function getRecentPosts(token: string, subreddit: string, limit = 5): Promise<RedditPost[]> {
+  const response = await fetch(`https://oauth.reddit.com/r/${subreddit}/new?limit=${limit}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'User-Agent': USER_AGENT,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch recent posts: ${response.statusText}`);
+  }
+
+  const data: any = await response.json();
+  return (data.data.children ?? []).map((child: any) => ({
+    title: child.data.title,
+    url: child.data.url,
+    permalink: `https://reddit.com${child.data.permalink}`,
+    createdUtc: child.data.created_utc,
+  }));
+}
+
 export async function uploadImageToReddit(token: string, sourceImageUrl: string): Promise<UploadResult> {
   const leaseRes = await fetch('https://oauth.reddit.com/api/media/asset.json?raw_json=1', {
     method: 'POST',
