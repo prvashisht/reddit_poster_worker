@@ -15,11 +15,7 @@ const RESULT_LABELS: Record<string, { label: string; color: string }> = {
   dry_run: { label: 'Dry Run', color: '#6366f1' },
 };
 
-export type DashboardOptions = {
-  secret?: string;
-};
-
-export function buildDashboardHtml(state: RunState | null, opts: DashboardOptions = {}): string {
+export function buildDashboardHtml(state: RunState | null): string {
   const resultInfo = state
     ? RESULT_LABELS[state.lastRunResult] ?? { label: state.lastRunResult, color: '#737373' }
     : null;
@@ -46,11 +42,6 @@ export function buildDashboardHtml(state: RunState | null, opts: DashboardOption
         </div>` : ''}
       `
     : '<p class="empty">No runs recorded yet.</p>';
-
-  // Inject secret into the JS fetch URL so auth is forwarded transparently.
-  const postsEndpoint = opts.secret
-    ? `/api/posts?secret=${esc(opts.secret)}`
-    : '/api/posts';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -91,6 +82,7 @@ export function buildDashboardHtml(state: RunState | null, opts: DashboardOption
     ${statusRows}
     <div class="footer">
       <a href="/api/status">JSON</a>
+      <a href="/logout">Sign out</a>
     </div>
   </div>
 
@@ -117,7 +109,7 @@ export function buildDashboardHtml(state: RunState | null, opts: DashboardOption
       const updated = document.getElementById('posts-updated');
       list.innerHTML = '<p class="empty">Loading…</p>';
       try {
-        const res = await fetch('${postsEndpoint}');
+        const res = await fetch('/api/posts');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const posts = await res.json();
         if (!posts.length) {

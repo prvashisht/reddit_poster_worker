@@ -1,34 +1,62 @@
 import { handleDashboard } from '../routes/dashboard';
 import { handleApiStatus, handleApiPosts } from '../routes/api';
+import {
+  handleLoginPage,
+  handleLoginSubmit,
+  handleLogout,
+  getSessionCookie,
+} from '../routes/auth';
 
 function isAuthorized(request: Request, env: Env): boolean {
   const secret = env.DASHBOARD_SECRET;
   if (!secret) return true;
 
-  const url = new URL(request.url);
-  if (url.searchParams.get('secret') === secret) return true;
+  // Session cookie (browser login flow)
+  if (getSessionCookie(request) === secret) return true;
 
+  // Bearer token (programmatic / API access)
   const authHeader = request.headers.get('Authorization');
   if (authHeader === `Bearer ${secret}`) return true;
 
   return false;
 }
 
+const redirectToLogin = () =>
+  new Response(null, { status: 302, headers: { Location: '/login' } });
+
+const unauthorized = () =>
+  new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
+
 export async function handleFetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
   const { pathname } = new URL(request.url);
+  const method = request.method;
 
+  // Auth routes — always public
+  if (pathname === '/login') {
+    if (method === 'POST') return handleLoginSubmit(request, env);
+    return handleLoginPage();
+  }
+  if (pathname === '/logout') {
+    return handleLogout();
+  }
+
+  // Dashboard — redirect to login page when unauthenticated
   if (pathname === '/' || pathname === '/dashboard') {
-    if (!isAuthorized(request, env)) return new Response('Unauthorized', { status: 401 });
+    if (!isAuthorized(request, env)) return redirectToLogin();
     return handleDashboard(env);
   }
 
+  // API routes — return JSON 401 when unauthenticated (used programmatically)
   if (pathname === '/api/status') {
-    if (!isAuthorized(request, env)) return new Response('Unauthorized', { status: 401 });
+    if (!isAuthorized(request, env)) return unauthorized();
     return handleApiStatus(env);
   }
 
   if (pathname === '/api/posts') {
-    if (!isAuthorized(request, env)) return new Response('Unauthorized', { status: 401 });
+    if (!isAuthorized(request, env)) return unauthorized();
     return handleApiPosts(env);
   }
 
