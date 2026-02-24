@@ -165,6 +165,22 @@ export async function submitImagePost(
   return data.json.data;
 }
 
+export async function commentOnPost(token: string, postName: string, text: string): Promise<void> {
+  const response = await fetch('https://oauth.reddit.com/api/comment', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': USER_AGENT,
+    },
+    body: new URLSearchParams({ thing_id: postName, text, api_type: 'json' }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to comment on post: ${response.statusText}`);
+  }
+}
+
 export async function postOnReddit(
   token: string,
   subreddit: string,

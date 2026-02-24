@@ -5,6 +5,7 @@ import {
   uploadImageToReddit,
   submitImagePost,
   postOnReddit,
+  commentOnPost,
   type RedditPostContent,
 } from '../services/reddit';
 import { putRunState, type RunState } from '../store/run-state';
@@ -24,8 +25,18 @@ export async function handleScheduled(_event: ScheduledEvent, env: Env, _ctx: Ex
     }
   };
 
+  const tryComment = async (token: string, postName: string | undefined, sourceUrl: string) => {
+    if (!postName) return;
+    try {
+      await commentOnPost(token, postName, `**Source:** ${sourceUrl}`);
+      console.log('Source comment posted on', postName);
+    } catch (e) {
+      console.error('Failed to post source comment (non-fatal)', e);
+    }
+  };
+
   try {
-    const { title, imageUrl } = await getLatestSpeakOut();
+    const { title, imageUrl, pageUrl } = await getLatestSpeakOut();
 
     const token = await authenticateWithReddit(env);
 
@@ -76,6 +87,7 @@ export async function handleScheduled(_event: ScheduledEvent, env: Env, _ctx: Ex
         );
       }
       console.log('Image post verified in /new');
+      await tryComment(token, result.name, pageUrl);
 
       await writeState({
         lastRunAt: new Date().toISOString(),
@@ -98,6 +110,7 @@ export async function handleScheduled(_event: ScheduledEvent, env: Env, _ctx: Ex
           );
         }
         console.log('Link post verified in /new');
+        await tryComment(token, result.name, pageUrl);
 
         await writeState({
           lastRunAt: new Date().toISOString(),
