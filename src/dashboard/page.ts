@@ -79,11 +79,21 @@ function buildHistoryRows(history: RunState[]): string {
     .join('');
 }
 
-export function buildDashboardHtml(history: RunState[]): string {
+export function buildDashboardHtml(
+  history: RunState[],
+  // Set collapsible: false to render right-column sections as plain cards
+  { collapsible = true }: { collapsible?: boolean } = {},
+): string {
   const state = history[0] ?? null;
 
   const statusRows = state ? buildLatestCard(state) : '<p class="empty">No runs recorded yet.</p>';
   const historyRows = buildHistoryRows(history);
+
+  // Helpers for right-column cards — switch between <details> and <div> via the option above
+  const rOpen = (open = true) =>
+    collapsible ? '<details class="card"' + (open ? ' open' : '') + '>' : '<div class="card">';
+  const rClose = () => (collapsible ? '</details>' : '</div>');
+  const rHead = (h: string) => (collapsible ? '<summary>' + h + '</summary>' : h);
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -93,11 +103,24 @@ export function buildDashboardHtml(history: RunState[]): string {
   <title>Reddit Savage Bot Dashboard</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f0f;color:#e5e5e5;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem;padding:1.5rem}
-    .card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:2rem;max-width:520px;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.4)}
-    h1{font-size:1.25rem;font-weight:600;margin-bottom:1.5rem;color:#fff}
+    body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f0f;color:#e5e5e5;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:1.5rem}
+    .dashboard{display:grid;grid-template-columns:1fr 1fr;gap:1rem;width:100%;max-width:1060px;align-items:start}
+    .col{display:flex;flex-direction:column;gap:1rem;min-width:0}
+    @media(max-width:680px){.dashboard{grid-template-columns:1fr}}
+    .card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:2rem;width:100%;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+    h1{font-size:1.25rem;font-weight:600;color:#fff;margin-bottom:1.5rem}
     h1 span{color:#ff4500}
-    h2{font-size:.9rem;font-weight:600;color:#a3a3a3;margin-bottom:1rem;text-transform:uppercase;letter-spacing:.05em}
+    h2{font-size:.9rem;font-weight:600;color:#a3a3a3;text-transform:uppercase;letter-spacing:.05em;margin-bottom:1rem}
+    details.card>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:1rem;user-select:none;padding-bottom:1.25rem;margin-bottom:0}
+    details.card>summary::-webkit-details-marker{display:none}
+    details.card>summary h1,details.card>summary h2{margin-bottom:0}
+    details.card>summary::after{content:"▾";font-size:1.1rem;color:#525252;flex-shrink:0;transition:transform .2s}
+    details.card[open]>summary::after{transform:rotate(-180deg)}
+    details.card:not([open])>summary{padding-bottom:0}
+    @keyframes detailsOpen{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes detailsClose{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(-6px)}}
+    details.card[open]:not(.closing)>*:not(summary){animation:detailsOpen .18s ease}
+    details.card.closing>*:not(summary){animation:detailsClose .18s ease forwards;pointer-events:none}
     .row{display:flex;justify-content:space-between;align-items:center;padding:.75rem 0;border-bottom:1px solid #2a2a2a}
     .row:last-child{border-bottom:none}
     .label{font-size:.85rem;color:#a3a3a3;flex-shrink:0;margin-right:1rem}
@@ -140,60 +163,68 @@ export function buildDashboardHtml(history: RunState[]): string {
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1><span>r/DHSavagery</span> Poster</h1>
-    ${statusRows}
-    <div class="footer">
-      <a href="/api/status">JSON</a>
-      <a href="/logout">Sign out</a>
-    </div>
-  </div>
+  <div class="dashboard">
 
-  <div class="card">
-    <h2>Run manually</h2>
-    <p style="font-size:.82rem;color:#737373;margin-bottom:1rem">Runs the bot now with the same duplicate check as the scheduled job — will skip if today's Speakout is already posted.</p>
-    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
-      <button class="run-btn" id="run-btn" onclick="triggerRun(false)">Run Now</button>
-      <button class="run-btn" id="dry-btn" style="background:#6366f1" onclick="triggerRun(true)" title="Fetches the latest Speakout and checks if it would post, but does not actually post anything">Dry Run (no post)</button>
-    </div>
-    <div class="run-result" id="run-result"></div>
-  </div>
+    <div class="col">
+      <div class="card">
+        <h1><span>r/DHSavagery</span> Poster</h1>
+        ${statusRows}
+        <div class="footer">
+          <a href="/api/status">JSON</a>
+          <a href="/logout">Sign out</a>
+        </div>
+      </div>
 
-  <div class="card">
-    <h2>Fix missing comment</h2>
-    <p style="font-size:.82rem;color:#737373;margin-bottom:1rem">Checks if the latest post already has a source comment from the bot, and adds one if not.</p>
-    <button class="run-btn" id="comment-btn" style="background:#0ea5e9" onclick="triggerComment()">Add Source Comment</button>
-    <div class="run-result" id="comment-result"></div>
-  </div>
+      <div class="card">
+        <h2>Run manually</h2>
+        <p style="font-size:.82rem;color:#737373;margin-bottom:1rem">Runs the bot now with the same duplicate check as the scheduled job — will skip if today's Speakout is already posted.</p>
+        <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+          <button class="run-btn" id="run-btn" onclick="triggerRun(false)">Run Now</button>
+          <button class="run-btn" id="dry-btn" style="background:#6366f1" onclick="triggerRun(true)" title="Fetches the latest Speakout and checks if it would post, but does not actually post anything">Dry Run (no post)</button>
+        </div>
+        <div class="run-result" id="run-result"></div>
+      </div>
 
-  <div class="card">
-    <h2>Run history</h2>
-    <div id="history-list">${historyRows}</div>
-  </div>
+      <div class="card">
+        <h2>Fix missing comment</h2>
+        <p style="font-size:.82rem;color:#737373;margin-bottom:1rem">Checks if the latest post already has a source comment from the bot, and adds one if not.</p>
+        <button class="run-btn" id="comment-btn" style="background:#0ea5e9" onclick="triggerComment()">Add Source Comment</button>
+        <div class="run-result" id="comment-result"></div>
+      </div>
+    </div>
 
-  <div class="card">
-    <h2>Recent posts</h2>
-    <div id="posts-list"><p class="empty">Loading…</p></div>
-    <div class="footer">
-      <span id="posts-updated"></span>
-      <button class="refresh-btn" onclick="loadPosts()">Refresh</button>
-    </div>
-  </div>
+    <div class="col">
+      ${rOpen()}
+        ${rHead('<h2>Run history</h2>')}
+        <div id="history-list">${historyRows}</div>
+      ${rClose()}
 
-  <div class="card">
-    <h2>Top posts</h2>
-    <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.85rem" id="tf-buttons">
-      <button class="tf-btn" onclick="loadTopPosts('day')" data-tf="day">Today</button>
-      <button class="tf-btn active" onclick="loadTopPosts('week')" data-tf="week">This week</button>
-      <button class="tf-btn" onclick="loadTopPosts('month')" data-tf="month">Month</button>
-      <button class="tf-btn" onclick="loadTopPosts('year')" data-tf="year">Year</button>
-      <button class="tf-btn" onclick="loadTopPosts('all')" data-tf="all">All time</button>
+      ${rOpen()}
+        ${rHead('<h2>Recent posts</h2>')}
+        <div id="posts-list"><p class="empty">Loading…</p></div>
+        <div class="footer">
+          <span id="posts-updated"></span>
+          <button class="refresh-btn" onclick="loadPosts()">Refresh</button>
+        </div>
+      ${rClose()}
+
+      ${rOpen()}
+        ${rHead('<h2>Top posts</h2>')}
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.85rem" id="tf-buttons">
+          <button class="tf-btn" onclick="loadTopPosts('day')" data-tf="day">Today</button>
+          <button class="tf-btn active" onclick="loadTopPosts('week')" data-tf="week">This week</button>
+          <button class="tf-btn" onclick="loadTopPosts('month')" data-tf="month">Month</button>
+          <button class="tf-btn" onclick="loadTopPosts('year')" data-tf="year">Year</button>
+          <button class="tf-btn" onclick="loadTopPosts('all')" data-tf="all">All time</button>
+        </div>
+        <div id="top-posts-list"><p class="empty">Loading…</p></div>
+        <div class="footer">
+          <span id="top-posts-updated"></span>
+          <button class="refresh-btn" onclick="loadTopPosts(currentTf)">Refresh</button>
+        </div>
+      ${rClose()}
     </div>
-    <div id="top-posts-list"><p class="empty">Loading…</p></div>
-    <div class="footer">
-      <span id="top-posts-updated"></span>
-      <button class="refresh-btn" onclick="loadTopPosts(currentTf)">Refresh</button>
-    </div>
+
   </div>
 
   <script>
@@ -363,6 +394,17 @@ export function buildDashboardHtml(history: RunState[]): string {
         updated.textContent = 'Error — see console';
       }
     }
+
+    // Intercept close clicks to run the slide-up animation before removing [open]
+    document.querySelectorAll('details.card').forEach(function(el) {
+      el.addEventListener('click', function(e) {
+        if (!e.target.closest('summary')) return;
+        if (!el.open) return;
+        e.preventDefault();
+        el.classList.add('closing');
+        setTimeout(function() { el.classList.remove('closing'); el.removeAttribute('open'); }, 180);
+      });
+    });
 
     console.log('[dashboard] script loaded, kicking off loadPosts + loadTopPosts');
     loadPosts();
