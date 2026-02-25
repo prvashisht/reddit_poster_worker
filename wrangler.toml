@@ -1,4 +1,4 @@
-name = "reddit_poster_worker"
+name = "reddit-savage-bot"
 main = "src/index.ts"
 compatibility_date = "2025-07-11"
 

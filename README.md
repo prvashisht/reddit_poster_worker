@@ -1,4 +1,4 @@
-# Reddit Poster Worker
+# Reddit Savage Bot worker
 
 A Cloudflare Worker that scrapes Deccan Herald’s “Speak Out” and posts the latest image to [r/DHSavagery](https://old.reddit.com/r/DHSavagery/).
 

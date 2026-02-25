@@ -4,7 +4,7 @@ export function buildLoginHtml(opts: { error?: boolean } = {}): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign in · Reddit Poster Worker</title>
+  <title>Sign in · Reddit Savage Bot Dashboard</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f0f;color:#e5e5e5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}

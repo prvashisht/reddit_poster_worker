@@ -1,5 +1,5 @@
 {
-  "name": "reddit_poster_worker",
+  "name": "reddit-savage-bot",
   "version": "0.0.0",
   "devDependencies": {
     "typescript": "^5.3.3",
