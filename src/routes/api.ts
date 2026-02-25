@@ -1,5 +1,5 @@
 import { getRunState, getRunHistory } from '../store/run-state';
-import { authenticateWithReddit, getRecentPosts } from '../services/reddit';
+import { authenticateWithReddit, getRecentPosts, getTopPosts } from '../services/reddit';
 import { runBot, ensureCommentOnLatestPost } from '../core/run';
 
 export async function handleApiStatus(env: Env): Promise<Response> {
@@ -19,6 +19,16 @@ export async function handleApiHistory(env: Env): Promise<Response> {
 export async function handleApiPosts(env: Env): Promise<Response> {
   const token = await authenticateWithReddit(env);
   const posts = await getRecentPosts(token, 'DHSavagery');
+  return new Response(JSON.stringify(posts), {
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
+}
+
+export async function handleApiTopPosts(env: Env, timeframe = 'week'): Promise<Response> {
+  const valid = ['day', 'week', 'month', 'year', 'all'];
+  const t = valid.includes(timeframe) ? (timeframe as 'day' | 'week' | 'month' | 'year' | 'all') : 'week';
+  const token = await authenticateWithReddit(env);
+  const posts = await getTopPosts(token, 'DHSavagery', 10, t);
   return new Response(JSON.stringify(posts), {
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   });

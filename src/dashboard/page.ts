@@ -116,6 +116,18 @@ export function buildDashboardHtml(history: RunState[]): string {
     .post-title{font-size:.85rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .post-age{font-size:.75rem;color:#737373;flex-shrink:0}
     #posts-list .empty{padding:.5rem 0}
+    .top-post-item{display:flex;gap:.85rem;padding:.7rem 0;border-bottom:1px solid #2a2a2a;align-items:flex-start}
+    .top-post-item:last-child{border-bottom:none}
+    .top-post-thumb{width:72px;height:54px;object-fit:cover;border-radius:6px;flex-shrink:0;background:#2a2a2a}
+    .top-post-thumb-placeholder{width:72px;height:54px;border-radius:6px;flex-shrink:0;background:#2a2a2a;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+    .top-post-body{flex:1;min-width:0}
+    .top-post-title{font-size:.83rem;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .top-post-meta{font-size:.73rem;color:#737373;margin-top:.25rem;display:flex;gap:.6rem}
+    .score-chip{color:#ff6314}
+    .tf-btn{background:none;border:1px solid #3a3a3a;color:#a3a3a3;border-radius:6px;padding:.2rem .55rem;font-size:.73rem;cursor:pointer}
+    .tf-btn:hover{border-color:#525252;color:#e5e5e5}
+    .tf-btn.active{border-color:#ff4500;color:#ff4500}
+    #top-posts-list .empty{padding:.5rem 0}
     .run-btn{background:#ff4500;border:none;color:#fff;border-radius:8px;padding:.5rem 1.1rem;font-size:.85rem;font-weight:600;cursor:pointer;transition:background .15s}
     .run-btn:hover:not(:disabled){background:#e03d00}
     .run-btn:disabled{opacity:.5;cursor:not-allowed}
@@ -168,6 +180,22 @@ export function buildDashboardHtml(history: RunState[]): string {
     </div>
   </div>
 
+  <div class="card">
+    <h2>Top posts</h2>
+    <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.85rem" id="tf-buttons">
+      <button class="tf-btn" onclick="loadTopPosts('day')" data-tf="day">Today</button>
+      <button class="tf-btn active" onclick="loadTopPosts('week')" data-tf="week">This week</button>
+      <button class="tf-btn" onclick="loadTopPosts('month')" data-tf="month">Month</button>
+      <button class="tf-btn" onclick="loadTopPosts('year')" data-tf="year">Year</button>
+      <button class="tf-btn" onclick="loadTopPosts('all')" data-tf="all">All time</button>
+    </div>
+    <div id="top-posts-list"><p class="empty">Loading…</p></div>
+    <div class="footer">
+      <span id="top-posts-updated"></span>
+      <button class="refresh-btn" onclick="loadTopPosts(currentTf)">Refresh</button>
+    </div>
+  </div>
+
   <script>
     function timeAgo(utcSecs) {
       const diff = Math.floor(Date.now() / 1000) - utcSecs;
@@ -180,11 +208,15 @@ export function buildDashboardHtml(history: RunState[]): string {
     async function loadPosts() {
       const list = document.getElementById('posts-list');
       const updated = document.getElementById('posts-updated');
+      console.log('[loadPosts] starting fetch /api/posts');
       list.innerHTML = '<p class="empty">Loading…</p>';
+      updated.textContent = 'Fetching…';
       try {
         const res = await fetch('/api/posts');
+        console.log('[loadPosts] response status:', res.status, res.ok);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const posts = await res.json();
+        console.log('[loadPosts] received', posts.length, 'posts');
         if (!posts.length) {
           list.innerHTML = '<p class="empty">No posts found.</p>';
         } else {
@@ -197,7 +229,9 @@ export function buildDashboardHtml(history: RunState[]): string {
         }
         updated.textContent = 'Updated ' + new Date().toLocaleTimeString();
       } catch (e) {
+        console.error('[loadPosts] error:', e);
         list.innerHTML = '<p class="empty error">Failed to load posts: ' + e.message + '</p>';
+        updated.textContent = 'Error — see console';
       }
     }
 
@@ -281,7 +315,58 @@ export function buildDashboardHtml(history: RunState[]): string {
       }
     }
 
+    let currentTf = 'week';
+
+    async function loadTopPosts(tf) {
+      currentTf = tf;
+      document.querySelectorAll('#tf-buttons .tf-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.tf === tf);
+      });
+      const list = document.getElementById('top-posts-list');
+      const updated = document.getElementById('top-posts-updated');
+      console.log('[loadTopPosts] starting fetch /api/top-posts?t=' + tf);
+      list.innerHTML = '<p class="empty">Loading…</p>';
+      updated.textContent = 'Fetching…';
+      try {
+        const res = await fetch('/api/top-posts?t=' + tf);
+        console.log('[loadTopPosts] response status:', res.status, res.ok);
+        if (!res.ok) {
+          const body = await res.text();
+          console.error('[loadTopPosts] error body:', body);
+          throw new Error('HTTP ' + res.status + ' — ' + body.slice(0, 120));
+        }
+        const posts = await res.json();
+        console.log('[loadTopPosts] received', posts.length, 'posts, first:', posts[0]);
+        if (!posts.length) {
+          list.innerHTML = '<p class="empty">No posts found.</p>';
+        } else {
+          list.innerHTML = posts.map(p => {
+            const safeTitle = p.title.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            console.log('[loadTopPosts] post:', p.title, '| imageUrl:', p.imageUrl ?? '(none)');
+            const thumb = p.imageUrl
+              ? '<img class="top-post-thumb" src="' + p.imageUrl + '" alt="" loading="lazy" onerror="this.remove()">'
+              : '<div class="top-post-thumb-placeholder">🖼</div>';
+            const score = p.score != null ? '<span class="score-chip">▲ ' + (p.score >= 1000 ? (p.score / 1000).toFixed(1) + 'k' : p.score) + '</span>' : '';
+            return '<div class="top-post-item">' +
+              thumb +
+              '<div class="top-post-body">' +
+                '<a class="post-link top-post-title" href="' + p.permalink + '" target="_blank" rel="noopener">' + safeTitle + '</a>' +
+                '<div class="top-post-meta">' + score + '<span>' + timeAgo(p.createdUtc) + '</span></div>' +
+              '</div>' +
+            '</div>';
+          }).join('');
+        }
+        updated.textContent = 'Updated ' + new Date().toLocaleTimeString();
+      } catch (e) {
+        console.error('[loadTopPosts] error:', e);
+        list.innerHTML = '<p class="empty error">Failed to load: ' + e.message + '</p>';
+        updated.textContent = 'Error — see console';
+      }
+    }
+
+    console.log('[dashboard] script loaded, kicking off loadPosts + loadTopPosts');
     loadPosts();
+    loadTopPosts('week');
   </script>
 </body>
 </html>`;

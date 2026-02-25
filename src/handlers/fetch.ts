@@ -1,5 +1,5 @@
 import { handleDashboard } from '../routes/dashboard';
-import { handleApiStatus, handleApiHistory, handleApiPosts, handleApiRun, handleApiComment } from '../routes/api';
+import { handleApiStatus, handleApiHistory, handleApiPosts, handleApiTopPosts, handleApiRun, handleApiComment } from '../routes/api';
 import {
   handleLoginPage,
   handleLoginSubmit,
@@ -63,6 +63,12 @@ export async function handleFetch(request: Request, env: Env, _ctx: ExecutionCon
   if (pathname === '/api/posts') {
     if (!isAuthorized(request, env)) return unauthorized();
     return handleApiPosts(env);
+  }
+
+  if (pathname === '/api/top-posts') {
+    if (!isAuthorized(request, env)) return unauthorized();
+    const timeframe = new URL(request.url).searchParams.get('t') ?? 'week';
+    return handleApiTopPosts(env, timeframe);
   }
 
   if (pathname === '/api/run' && method === 'POST') {

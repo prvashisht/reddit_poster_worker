@@ -64,7 +64,18 @@ export type RedditPost = {
   url: string;
   permalink: string;
   createdUtc: number;
+  imageUrl?: string;
+  score?: number;
 };
+
+function extractImageUrl(child: any): string | undefined {
+  const d = child.data;
+  if (d.post_hint === 'image' && d.url) return d.url;
+  const previewUrl = d.preview?.images?.[0]?.source?.url;
+  if (previewUrl) return previewUrl.replace(/&amp;/g, '&');
+  if (d.thumbnail && d.thumbnail.startsWith('http')) return d.thumbnail;
+  return undefined;
+}
 
 export async function getRecentPosts(token: string, subreddit: string, limit = 5): Promise<RedditPost[]> {
   const response = await fetch(`https://oauth.reddit.com/r/${subreddit}/new?limit=${limit}`, {
@@ -85,6 +96,38 @@ export async function getRecentPosts(token: string, subreddit: string, limit = 5
     url: child.data.url,
     permalink: `https://reddit.com${child.data.permalink}`,
     createdUtc: child.data.created_utc,
+  }));
+}
+
+export async function getTopPosts(
+  token: string,
+  subreddit: string,
+  limit = 10,
+  timeframe: 'day' | 'week' | 'month' | 'year' | 'all' = 'week',
+): Promise<RedditPost[]> {
+  const response = await fetch(
+    `https://oauth.reddit.com/r/${subreddit}/top?limit=${limit}&t=${timeframe}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'User-Agent': USER_AGENT,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch top posts: ${response.statusText}`);
+  }
+
+  const data: any = await response.json();
+  return (data.data.children ?? []).map((child: any) => ({
+    name: child.data.name,
+    title: child.data.title,
+    url: child.data.url,
+    permalink: `https://reddit.com${child.data.permalink}`,
+    createdUtc: child.data.created_utc,
+    imageUrl: extractImageUrl(child),
+    score: child.data.score,
   }));
 }
 
