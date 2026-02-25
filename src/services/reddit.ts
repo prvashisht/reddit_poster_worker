@@ -59,6 +59,7 @@ export async function getFirstPostTitle(token: string, subreddit: string): Promi
 }
 
 export type RedditPost = {
+  name: string; // Reddit thing_id, e.g. "t3_xxxxxx"
   title: string;
   url: string;
   permalink: string;
@@ -79,11 +80,34 @@ export async function getRecentPosts(token: string, subreddit: string, limit = 5
 
   const data: any = await response.json();
   return (data.data.children ?? []).map((child: any) => ({
+    name: child.data.name,
     title: child.data.title,
     url: child.data.url,
     permalink: `https://reddit.com${child.data.permalink}`,
     createdUtc: child.data.created_utc,
   }));
+}
+
+export type RedditComment = {
+  author: string;
+  body: string;
+};
+
+export async function getPostComments(
+  token: string,
+  subreddit: string,
+  postId: string,
+): Promise<RedditComment[]> {
+  const response = await fetch(
+    `https://oauth.reddit.com/r/${subreddit}/comments/${postId}?limit=100`,
+    { headers: { Authorization: `Bearer ${token}`, 'User-Agent': USER_AGENT } },
+  );
+  if (!response.ok) throw new Error(`Failed to fetch comments: ${response.statusText}`);
+  const data: any = await response.json();
+  const children = data?.[1]?.data?.children ?? [];
+  return children
+    .filter((c: any) => c.kind === 't1')
+    .map((c: any) => ({ author: c.data.author as string, body: c.data.body as string }));
 }
 
 export async function uploadImageToReddit(token: string, sourceImageUrl: string): Promise<UploadResult> {
@@ -176,8 +200,10 @@ export async function commentOnPost(token: string, postName: string, text: strin
     body: new URLSearchParams({ thing_id: postName, text, api_type: 'json' }),
   });
 
-  if (!response.ok) {
-    throw new Error(`Failed to comment on post: ${response.statusText}`);
+  const data: any = await response.json();
+  const errors: unknown[][] = data?.json?.errors ?? [];
+  if (!response.ok || errors.length > 0) {
+    throw new Error(`Failed to comment on post: ${response.status} ${JSON.stringify(errors)}`);
   }
 }
 

@@ -1,5 +1,5 @@
 import { handleDashboard } from '../routes/dashboard';
-import { handleApiStatus, handleApiPosts } from '../routes/api';
+import { handleApiStatus, handleApiHistory, handleApiPosts, handleApiRun, handleApiComment } from '../routes/api';
 import {
   handleLoginPage,
   handleLoginSubmit,
@@ -55,9 +55,24 @@ export async function handleFetch(request: Request, env: Env, _ctx: ExecutionCon
     return handleApiStatus(env);
   }
 
+  if (pathname === '/api/history') {
+    if (!isAuthorized(request, env)) return unauthorized();
+    return handleApiHistory(env);
+  }
+
   if (pathname === '/api/posts') {
     if (!isAuthorized(request, env)) return unauthorized();
     return handleApiPosts(env);
+  }
+
+  if (pathname === '/api/run' && method === 'POST') {
+    if (!isAuthorized(request, env)) return unauthorized();
+    return handleApiRun(request, env);
+  }
+
+  if (pathname === '/api/comment' && method === 'POST') {
+    if (!isAuthorized(request, env)) return unauthorized();
+    return handleApiComment(env);
   }
 
   return new Response('Not Found', { status: 404 });
