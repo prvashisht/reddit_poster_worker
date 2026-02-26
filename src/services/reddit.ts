@@ -283,3 +283,35 @@ export async function postOnReddit(
   const data: any = await response.json();
   return data.json.data;
 }
+
+export type FlairTemplate = {
+  id: string;
+  text: string;
+};
+
+export async function getFlairTemplates(token: string, subreddit: string): Promise<FlairTemplate[]> {
+  const response = await fetch(`https://oauth.reddit.com/r/${subreddit}/api/link_flair_v2`, {
+    headers: { Authorization: `Bearer ${token}`, 'User-Agent': USER_AGENT },
+  });
+  if (!response.ok) throw new Error(`Failed to fetch flair templates: ${response.statusText}`);
+  const data: any = await response.json();
+  return (data ?? []).map((f: any) => ({ id: f.id as string, text: f.text as string }));
+}
+
+export async function setPostFlair(
+  token: string,
+  subreddit: string,
+  postName: string,
+  flairTemplateId: string,
+): Promise<void> {
+  const response = await fetch(`https://oauth.reddit.com/r/${subreddit}/api/selectflair`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': USER_AGENT,
+    },
+    body: new URLSearchParams({ link: postName, flair_template_id: flairTemplateId, api_type: 'json' }),
+  });
+  if (!response.ok) throw new Error(`Failed to set flair: ${response.statusText}`);
+}

@@ -1,4 +1,4 @@
-import type { RunState } from '../store/run-state';
+import type { RunState, FlairResult } from '../store/run-state';
 
 function esc(s: string): string {
   return s
@@ -23,6 +23,12 @@ const COMMENT_LABELS: Record<string, { label: string; color: string }> = {
   skipped: { label: 'No comment', color: '#525252' },
 };
 
+function flairBadge(flair: FlairResult): string {
+  if (flair.status === 'set') return badge(`${flair.party} · ${flair.person}`, '#854d0e');
+  if (flair.status === 'failed') return badge('Flair ✗', '#dc2626');
+  return '';
+}
+
 function badge(label: string, color: string): string {
   return `<span class="badge" style="background:${color}">${esc(label)}</span>`;
 }
@@ -42,9 +48,10 @@ function buildLatestCard(state: RunState): string {
     </div>
     <div class="row">
       <span class="label">Result</span>
-      <span style="display:flex;gap:.4rem;align-items:center">
+      <span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
         ${badge(resultInfo.label, resultInfo.color)}
         ${state.commentResult ? badge(COMMENT_LABELS[state.commentResult].label, COMMENT_LABELS[state.commentResult].color) : ''}
+        ${state.flairResult ? flairBadge(state.flairResult) : ''}
       </span>
     </div>
     ${state.lastPostedTitle ? `
@@ -70,9 +77,10 @@ function buildHistoryRows(history: RunState[]): string {
       return `
         <div class="history-row">
           <span class="history-time">${formatDate(entry.lastRunAt)}${sourceTag}</span>
-          <span style="display:flex;gap:.35rem;align-items:center;flex-shrink:0">
+          <span style="display:flex;gap:.35rem;align-items:center;flex-shrink:0;flex-wrap:wrap">
             ${badge(resultInfo.label, resultInfo.color)}
             ${commentInfo ? badge(commentInfo.label, commentInfo.color) : ''}
+            ${entry.flairResult ? flairBadge(entry.flairResult) : ''}
           </span>
         </div>`;
     })
@@ -185,8 +193,19 @@ export function buildDashboardHtml(
         <div class="run-result" id="run-result"></div>
       </div>
 
-      <div class="card">
-        <h2>Fix missing comment</h2>
+  <div class="card">
+    <h2>Test flair detection</h2>
+    <p style="font-size:.82rem;color:#737373;margin-bottom:1rem">Runs GPT-4o-mini against today's cartoon and shows what it would detect — no post or flair is touched.</p>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem">
+      <input id="flair-url" type="url" placeholder="Custom image URL (optional — uses today's by default)"
+        style="flex:1;min-width:0;background:#111;border:1px solid #3a3a3a;color:#e5e5e5;border-radius:6px;padding:.4rem .6rem;font-size:.8rem;outline:none" />
+      <button class="run-btn" id="flair-test-btn" style="background:#854d0e;flex-shrink:0" onclick="triggerTestFlair()">Detect</button>
+    </div>
+    <div class="run-result" id="flair-test-result"></div>
+  </div>
+
+  <div class="card">
+    <h2>Fix missing comment</h2>
         <p style="font-size:.82rem;color:#737373;margin-bottom:1rem">Checks if the latest post already has a source comment from the bot, and adds one if not.</p>
         <button class="run-btn" id="comment-btn" style="background:#0ea5e9" onclick="triggerComment()">Add Source Comment</button>
         <div class="run-result" id="comment-result"></div>
@@ -311,6 +330,60 @@ export function buildDashboardHtml(
         btn.disabled = false;
         otherBtn.disabled = false;
         btn.textContent = dryRun ? 'Dry Run' : 'Run Now';
+      }
+    }
+
+    async function triggerTestFlair() {
+      const btn = document.getElementById('flair-test-btn');
+      const resultEl = document.getElementById('flair-test-result');
+      const urlInput = document.getElementById('flair-url');
+      btn.disabled = true;
+      btn.textContent = 'Detecting…';
+      resultEl.className = 'run-result';
+
+      try {
+        const body = {};
+        const customUrl = urlInput.value.trim();
+        if (customUrl) body.imageUrl = customUrl;
+
+        const res = await fetch('/api/test-flair', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+
+        const d = data.detection;
+        let lines = [];
+        if (data.speakoutTitle) lines.push('Image: ' + data.speakoutTitle);
+        if (d.party) {
+          lines.push('Person: ' + d.person);
+          lines.push('Party: ' + d.party + ' (confidence: ' + d.confidence + ')');
+          lines.push(data.matchedFlair
+            ? 'Flair match: "' + data.matchedFlair.text + '" ✓'
+            : 'No matching flair template found ✗');
+        } else {
+          lines.push('Could not identify: ' + d.reason);
+        }
+
+        const color = d.party ? '#16a34a' : '#ca8a04';
+        resultEl.style.borderLeft = '3px solid ' + color;
+        resultEl.style.color = '#e5e5e5';
+        resultEl.style.whiteSpace = 'pre-line';
+        resultEl.textContent = lines.join('\\n');
+        resultEl.className = 'run-result visible';
+      } catch (e) {
+        resultEl.style.borderLeft = '3px solid #dc2626';
+        resultEl.style.color = '#f87171';
+        resultEl.textContent = 'Error: ' + e.message;
+        resultEl.className = 'run-result visible';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Detect';
       }
     }
 

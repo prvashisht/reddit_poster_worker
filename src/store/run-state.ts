@@ -1,6 +1,11 @@
 export type RunResult = 'posted' | 'skipped' | 'failed' | 'dry_run' | 'comment_added' | 'comment_skipped';
 export type CommentResult = 'posted' | 'failed' | 'skipped';
 
+export type FlairResult =
+  | { status: 'set'; party: string; person: string }
+  | { status: 'skipped'; reason: string }
+  | { status: 'failed'; error: string };
+
 export type RunState = {
   lastRunAt: string;
   lastRunResult: RunResult;
@@ -8,6 +13,7 @@ export type RunState = {
   lastPostedUrl?: string;
   lastError?: string;
   commentResult?: CommentResult;
+  flairResult?: FlairResult;
   source?: 'scheduled' | 'manual';
 };
 

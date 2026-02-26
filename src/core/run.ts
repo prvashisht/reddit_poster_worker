@@ -4,13 +4,16 @@ import {
   getFirstPostTitle,
   getRecentPosts,
   getPostComments,
+  getFlairTemplates,
+  setPostFlair,
   uploadImageToReddit,
   submitImagePost,
   postOnReddit,
   commentOnPost,
   type RedditPostContent,
 } from '../services/reddit';
-import { putRunState, type RunState, type CommentResult } from '../store/run-state';
+import { detectPartyFromImage } from '../services/openai';
+import { putRunState, type RunState, type CommentResult, type FlairResult } from '../store/run-state';
 
 const SUBREDDIT = 'DHSavagery';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -49,6 +52,32 @@ export async function runBot(env: Env, options: RunOptions = {}): Promise<RunSta
     } catch (e) {
       console.error('Failed to post source comment (non-fatal)', e);
       return 'failed';
+    }
+  };
+
+  const tryFlair = async (token: string, postName: string, imageUrl: string): Promise<FlairResult> => {
+    if (!env.OPENAI_API_KEY) {
+      return { status: 'skipped', reason: 'OPENAI_API_KEY not set' };
+    }
+    try {
+      const detection = await detectPartyFromImage(env.OPENAI_API_KEY, imageUrl);
+      if (!detection.party) {
+        console.log('Flair: could not identify party —', detection.reason);
+        return { status: 'skipped', reason: detection.reason };
+      }
+      const templates = await getFlairTemplates(token, SUBREDDIT);
+      const template = templates.find((t) => t.text.trim().toUpperCase() === detection.party!.toUpperCase());
+      if (!template) {
+        console.log(`Flair: no template found for party "${detection.party}"`);
+        return { status: 'skipped', reason: `No flair template for "${detection.party}"` };
+      }
+      await setPostFlair(token, SUBREDDIT, postName, template.id);
+      console.log(`Flair set: ${detection.party} (${detection.person})`);
+      return { status: 'set', party: detection.party, person: detection.person };
+    } catch (e) {
+      const error = e instanceof Error ? e.message : String(e);
+      console.error('Failed to set flair (non-fatal):', error);
+      return { status: 'failed', error };
     }
   };
 
@@ -97,13 +126,17 @@ export async function runBot(env: Env, options: RunOptions = {}): Promise<RunSta
       // We use the verified /new post to get the name for commenting.
       const postName = result.name ?? newestPost.name;
       const postUrl = result.url ?? newestPost.url ?? newestPost.permalink;
-      const commentResult = await tryComment(token, postName, pageUrl);
+      const [commentResult, flairResult] = await Promise.all([
+        tryComment(token, postName, pageUrl),
+        tryFlair(token, postName, imageUrl),
+      ]);
       return save({
         lastRunAt: new Date().toISOString(),
         lastRunResult: 'posted',
         lastPostedTitle: postTitle,
         lastPostedUrl: postUrl,
         commentResult,
+        flairResult,
         source,
       });
     } catch (uploadErr) {
@@ -122,13 +155,17 @@ export async function runBot(env: Env, options: RunOptions = {}): Promise<RunSta
         }
         console.log('Link post verified in /new');
 
-        const commentResult = await tryComment(token, result.name, pageUrl);
+        const [commentResult, flairResult] = await Promise.all([
+          tryComment(token, result.name, pageUrl),
+          tryFlair(token, result.name ?? '', imageUrl),
+        ]);
         return save({
           lastRunAt: new Date().toISOString(),
           lastRunResult: 'posted',
           lastPostedTitle: postTitle,
           lastPostedUrl: result.url,
           commentResult,
+          flairResult,
           source,
         });
       } else {

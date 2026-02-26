@@ -1,5 +1,5 @@
 import { handleDashboard } from '../routes/dashboard';
-import { handleApiStatus, handleApiHistory, handleApiPosts, handleApiTopPosts, handleApiRun, handleApiComment } from '../routes/api';
+import { handleApiStatus, handleApiHistory, handleApiPosts, handleApiTopPosts, handleApiRun, handleApiComment, handleApiTestFlair } from '../routes/api';
 import {
   handleLoginPage,
   handleLoginSubmit,
@@ -79,6 +79,11 @@ export async function handleFetch(request: Request, env: Env, _ctx: ExecutionCon
   if (pathname === '/api/comment' && method === 'POST') {
     if (!isAuthorized(request, env)) return unauthorized();
     return handleApiComment(env);
+  }
+
+  if (pathname === '/api/test-flair' && method === 'POST') {
+    if (!isAuthorized(request, env)) return unauthorized();
+    return handleApiTestFlair(request, env);
   }
 
   return new Response('Not Found', { status: 404 });
