@@ -45,13 +45,32 @@ export async function runBot(env: Env, options: RunOptions = {}): Promise<RunSta
     sourceUrl: string,
   ): Promise<CommentResult> => {
     if (!postName) return 'skipped';
-    try {
+
+    const attempt = async (): Promise<void> => {
       await commentOnPost(token, postName, `**Source:** ${sourceUrl}`);
+    };
+
+    // Wait a bit before commenting — Reddit rate-limits actions taken immediately after posting
+    await sleep(5000);
+
+    try {
+      await attempt();
       console.log('Source comment posted on', postName);
       return 'posted';
     } catch (e) {
-      console.error('Failed to post source comment (non-fatal)', e);
-      return 'failed';
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn('Comment attempt 1 failed, retrying in 30s:', msg);
+
+      // One retry after a longer wait (covers Reddit's typical ratelimit window)
+      await sleep(30000);
+      try {
+        await attempt();
+        console.log('Source comment posted on', postName, '(retry)');
+        return 'posted';
+      } catch (e2) {
+        console.error('Failed to post source comment after retry (non-fatal)', e2);
+        return 'failed';
+      }
     }
   };
 
